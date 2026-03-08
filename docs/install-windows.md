@@ -1,56 +1,52 @@
-# 🪟 Guía de Generación (Windows Cross-Compilation)
+# 🪟 Guía de Compilación Nativa (Windows)
 
-Esta guía detalla los pasos para compilar versiones ejecutables nativas para plataformas Microsoft Windows (`.exe`) desde una máquina anfitrión Linux.
+Esta guía detalla los pasos para compilar versiones ejecutables nativas para plataformas Microsoft Windows (`.exe`) directamente desde una máquina Windows.
 
-La ventaja de este proceso de **compilación cruzada** es que puedes empaquetar y entregar un instalador para otro sistema operativo sin necesidad de arrancar máquinas virtuales de Windows ni salir de tu entorno Laoz local.
+## 1. Requisitos Previos (En tu Windows)
 
-## 1. Requisitos Previos (En tu Linux)
-
-Para compilar hacia la arquitectura de Windows requerimos:
-1. Instalar la cadena de herramientas `rustup target x86_64-pc-windows-gnu`.
-2. Una herramienta llamada `mingw-w64` en Linux que funciona como enlazador para los archivos binarios compilados de Windows.
-
-Abre tu terminal en Pop!_OS / Ubuntu y ejecuta:
-```bash
-sudo apt update
-sudo apt install mingw-w64 -y
-```
-
-## 2. Generación Automatizada usando Powershell
-
-El repositorio incluye un script escrito en Powershell que orquesta la compilación para Windows.
-
-1. Abre la consola de comandos de Powershell en tu sistema local.
-   ```bash
-   pwsh
-   ```
-2. Ejecuta el script de construcción de Windows situado en la raíz del proyecto:
+Para compilar la aplicación en Windows requerimos:
+1. Instalar **Rust** y su gestor de paquetes **Cargo**.
+   Puedes instalarlo desde PowerShell ejecutando:
    ```powershell
-   ./install-windows.ps1
+   Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "rustup-init.exe"
+   .\rustup-init.exe -y
+   ```
+2. **Reiniciar tu terminal:** Después de la instalación, es obligatorio cerrar tu ventana de PowerShell y abrirla nuevamente para que los comandos `rustc` y `cargo` estén disponibles (o forzar su carga con `$env:Path = ...`).
+
+## 2. Generación Automatizada usando PowerShell
+
+El repositorio incluye un script escrito en PowerShell que orquesta la compilación para Windows de forma nativa.
+
+1. Abre la consola de comandos de PowerShell en tu sistema.
+2. Ejecuta el script de construcción de Windows desde la raíz del ecosistema o desde la misma carpeta de la herramienta:
+   ```powershell
+   .\tools\dev-laoz-music-manager\install-windows.ps1
    ```
 
-### ¿Qué hace internamente este script de Windows?
-1. Confirma si necesitas descargar el target de compilación y ejecuta:
-   `rustup target add x86_64-pc-windows-gnu`.
-2. Llama a Cargo dándole la arquitectura extraña objetivo:
-   `cargo build --release --target x86_64-pc-windows-gnu`.
-3. Informa al usuario en qué lugar se almacenó el producto `.exe`.
+### ¿Qué hace internamente este script?
+1. Se posiciona en la carpeta correcta del código fuente (`Push-Location`).
+2. Confirma que Cargo esté disponible.
+3. Llama a Cargo para compilar usando el compilador nativo de la máquina:
+   `cargo build --release`
+4. Informa al usuario en qué lugar se almacenó el producto `.exe`.
 
 ## 3. Empleo en Sistema Windows Real
 
-El resultado final de ese comando de arriba será un ejecutable ubicado exactamente aquí:
+El resultado final de ese comando será un ejecutable ubicado exactamente aquí:
 ```text
-/ruta/a/dev-laoz-music-manager/target/x86_64-pc-windows-gnu/release/music-manager.exe
+/ruta/al/repo/tools/dev-laoz-music-manager/target/release/music-manager.exe
 ```
 
 Ese archivo `music-manager.exe` es 100% independiente.
 
-*   Puedes llevarlo en una llave USB y pegarlo en una computadora Windows.
+*   Puedes llevarlo en una llave USB y usarlo en cualquier computadora Windows.
 *   En la máquina Windows, abre `PowerShell` o el `Símbolo del sistema` (cmd).
-*   Llama al gestor desde allí y usa los mismos comandos que en Linux:
+*   Para ejecutarlo en PowerShell desde la carpeta en que se encuentra, es necesario poner `.\` delante:
     ```powershell
-    music-manager.exe scan "C:\Users\Nombre\Music\"
-    music-manager.exe tui "C:\Users\Nombre\Music\"
+    cd .\tools\dev-laoz-music-manager\target\release\
+    
+    .\music-manager.exe scan "C:\Users\Nombre\Music\"
+    .\music-manager.exe tui "C:\Users\Nombre\Music\"
     ```
 
 Siguiente paso recomendado: Revisar la [Guía de Uso (usage-guide.md)](usage-guide.md).

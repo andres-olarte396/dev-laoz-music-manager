@@ -2,6 +2,9 @@ param(
     [switch]$InstallTarget = $true
 )
 
+# Cambiar al directorio donde está el script
+Push-Location $PSScriptRoot
+
 Write-Host "🎵 Iniciando compilación de Music Manager para Windows..." -ForegroundColor Cyan
 
 # Comprobar si Cargo está instalado
@@ -12,18 +15,16 @@ if (-Not (Get-Command -Name cargo -ErrorAction SilentlyContinue)) {
 }
 
 if ($InstallTarget) {
-    Write-Host "🔧 Agregando target de Windows (x86_64-pc-windows-gnu)..." -ForegroundColor Yellow
-    rustup target add x86_64-pc-windows-gnu
-    
-    # En Linux, se requiere Mingw-w64 para cross-compilar hacia Windows
-    # sudo apt install mingw-w64
+    # Cuando se compila de forma nativa en Windows normalmente se usa MSVC (por defecto).
+    # Solo agregaremos el target x86_64-pc-windows-gnu si explícitamente se requiere,
+    # pero como está fallando por falta de MinGW, usaremos el default nativo de la máquina.
 }
 
 # Compilar en modo Release para Windows
 Write-Host "📦 Compilando binario multiplataforma (.exe)..." -ForegroundColor Yellow
-cargo build --release --target x86_64-pc-windows-gnu
+cargo build --release
 
-$OutputDir = "target/x86_64-pc-windows-gnu/release"
+$OutputDir = "target/release"
 $BinaryPath = "$OutputDir/music-manager.exe"
 
 if (Test-Path $BinaryPath) {
