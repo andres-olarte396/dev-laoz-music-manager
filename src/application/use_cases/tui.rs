@@ -57,6 +57,8 @@ struct App<R: TrackRepository> {
     repository: R,
     current_track: Option<Track>,
     is_playing: bool,
+    playback_start: Option<std::time::Instant>,
+    accumulated_play_time: std::time::Duration,
 }
 
 impl<R: TrackRepository> App<R> {
@@ -79,6 +81,8 @@ impl<R: TrackRepository> App<R> {
             repository,
             current_track: None,
             is_playing: false,
+            playback_start: None,
+            accumulated_play_time: std::time::Duration::ZERO,
         };
         app.load_directory();
         app
@@ -325,6 +329,8 @@ async fn run_app<B: Backend, R: TrackRepository>(
                                     if let Some(track) = app.results.get(i) {
                                         app.current_track = Some(track.clone());
                                         app.is_playing = true;
+                                        app.playback_start = Some(std::time::Instant::now());
+                                        app.accumulated_play_time = std::time::Duration::ZERO;
                                         let _ = _tx.send(PlayerCommand::Play(track.clone()));
                                     }
                                 }
@@ -351,6 +357,8 @@ async fn run_app<B: Backend, R: TrackRepository>(
                                                 };
                                                 app.current_track = Some(dummy_track.clone());
                                                 app.is_playing = true;
+                                                app.playback_start = Some(std::time::Instant::now());
+                                                app.accumulated_play_time = std::time::Duration::ZERO;
                                                 let _ = _tx.send(PlayerCommand::Play(dummy_track));
                                             }
                                         }
@@ -361,9 +369,13 @@ async fn run_app<B: Backend, R: TrackRepository>(
                         KeyCode::Char('p') | KeyCode::Char('P') => {
                             if app.is_playing {
                                 app.is_playing = false;
+                                if let Some(start) = app.playback_start.take() {
+                                    app.accumulated_play_time += start.elapsed();
+                                }
                                 let _ = _tx.send(PlayerCommand::Pause);
                             } else {
                                 app.is_playing = true;
+                                app.playback_start = Some(std::time::Instant::now());
                                 let _ = _tx.send(PlayerCommand::Resume);
                             }
                         }
@@ -478,8 +490,10 @@ fn ui<R: TrackRepository>(f: &mut Frame, app: &mut App<R>) {
         .map(|track| {
             let title = track.title.clone().unwrap_or_else(|| track.file_path.clone());
             let artist = track.artist.clone().unwrap_or_else(|| "Unknown".to_string());
+            let album = track.album.clone().unwrap_or_else(|| "Unknown Album".to_string());
             let line = Line::from(vec![
                 Span::styled(format!("{:20} ", artist), Style::default().fg(Color::Cyan)),
+                Span::styled(format!("{:30} ", album), Style::default().fg(Color::Magenta)),
                 Span::styled(format!("- {}", title), Style::default()),
             ]);
             ListItem::new(line)
@@ -501,7 +515,28 @@ fn ui<R: TrackRepository>(f: &mut Frame, app: &mut App<R>) {
 
     // -- 3. Playback Controls --
     let now_playing_text = match &app.current_track {
-        Some(track) => format!(" {} - {} ", track.artist.as_deref().unwrap_or("Unknown"), track.title.as_deref().unwrap_or("Unknown")),
+        Some(track) => {
+            let mut elapsed = app.accumulated_play_time;
+            if app.is_playing {
+                if let Some(start) = app.playback_start {
+                    elapsed += start.elapsed();
+                }
+            }
+            let elapsed_secs = elapsed.as_secs();
+            let duration_text = if let Some(total_secs) = track.duration_seconds {
+                let e_secs = elapsed_secs.min(total_secs as u64); // Cap temporal
+                format!("{:02}:{:02} / {:02}:{:02}", e_secs / 60, e_secs % 60, total_secs / 60, total_secs % 60)
+            } else {
+                format!("{:02}:{:02}", elapsed_secs / 60, elapsed_secs % 60)
+            };
+            
+            format!(" {} - {} ({}) [{}] ", 
+                track.artist.as_deref().unwrap_or("Unknown"), 
+                track.title.as_deref().unwrap_or("Unknown"),
+                track.album.as_deref().unwrap_or("Unknown Album"),
+                duration_text
+            )
+        },
         None => " Ninguna pista seleccionada ".to_string(),
     };
 
