@@ -1,4 +1,4 @@
-use std::fs::{self, File, DirEntry};
+use std::fs::{self, File};
 use std::io::BufReader;
 use rodio::{Decoder, OutputStream, Sink};
 use crossterm::{
@@ -42,6 +42,12 @@ enum AppFocus {
     Library,
 }
 
+pub struct ExplorerEntry {
+    pub path: std::path::PathBuf,
+    pub is_dir: bool,
+    pub name: String,
+}
+
 struct App<R: TrackRepository> {
     input: String,
     input_mode: InputMode,
@@ -50,7 +56,7 @@ struct App<R: TrackRepository> {
     
     // File Explorer State
     current_dir: std::path::PathBuf,
-    dir_entries: Vec<DirEntry>,
+    dir_entries: Vec<ExplorerEntry>,
     explorer_state: ListState,
 
     focus: AppFocus,
@@ -90,25 +96,53 @@ impl<R: TrackRepository> App<R> {
 
     fn load_directory(&mut self) {
         self.dir_entries.clear();
+        
+        // Vista de "Mi Equipo" / "Discos Locales" en Windows
+        if self.current_dir.as_os_str().is_empty() {
+            for drive in b'A'..=b'Z' {
+                let drive_str = format!("{}:\\", drive as char);
+                let path = std::path::PathBuf::from(&drive_str);
+                if path.exists() {
+                    self.dir_entries.push(ExplorerEntry {
+                        path,
+                        is_dir: true,
+                        name: drive_str,
+                    });
+                }
+            }
+            self.explorer_state.select(Some(0));
+            return;
+        }
+
         if let Ok(entries) = fs::read_dir(&self.current_dir) {
-            let mut valid_entries: Vec<DirEntry> = entries
+            let mut valid_entries: Vec<ExplorerEntry> = entries
                 .filter_map(|e| e.ok())
-                .filter(|e| {
+                .filter_map(|e| {
                     if let Ok(ft) = e.file_type() {
                         if ft.is_dir() {
-                            return true;
+                            return Some(ExplorerEntry {
+                                path: e.path(),
+                                is_dir: true,
+                                name: e.file_name().to_string_lossy().to_string(),
+                            });
                         }
                         if ft.is_file() {
                             let ext = e.path().extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
                             let extensions = ["mp3", "flac", "m4a", "wma", "wav", "ogg", "aac", "opus", "alac", "aiff"];
-                            return extensions.contains(&ext.as_str());
+                            if extensions.contains(&ext.as_str()) {
+                                return Some(ExplorerEntry {
+                                    path: e.path(),
+                                    is_dir: false,
+                                    name: e.file_name().to_string_lossy().to_string(),
+                                });
+                            }
                         }
                     }
-                    false
+                    None
                 })
                 .collect();
             // Sort alphabetical
-            valid_entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+            valid_entries.sort_by(|a, b| a.name.cmp(&b.name));
             self.dir_entries = valid_entries;
         }
         self.explorer_state.select(Some(0));
@@ -168,7 +202,7 @@ impl<R: TrackRepository> App<R> {
     async fn update_library_from_explorer(&mut self) {
         let path_to_search = if let Some(i) = self.explorer_state.selected() {
             if let Some(entry) = self.dir_entries.get(i) {
-                entry.path().to_string_lossy().to_string()
+                entry.path.to_string_lossy().to_string()
             } else {
                 self.current_dir.to_string_lossy().to_string()
             }
@@ -316,8 +350,13 @@ async fn run_app<B: Backend, R: TrackRepository>(
                         }
                         KeyCode::Backspace => {
                             if app.focus == AppFocus::Explorer {
-                                if let Some(parent) = app.current_dir.parent() {
-                                    app.current_dir = parent.to_path_buf();
+                                if !app.current_dir.as_os_str().is_empty() {
+                                    if let Some(parent) = app.current_dir.parent() {
+                                        app.current_dir = parent.to_path_buf();
+                                    } else {
+                                        // Ir a mis discos si estamos en la raíz (ej. E:\)
+                                        app.current_dir = std::path::PathBuf::from("");
+                                    }
                                     app.load_directory();
                                     app.update_library_from_explorer().await;
                                 }
@@ -337,30 +376,28 @@ async fn run_app<B: Backend, R: TrackRepository>(
                             } else if app.focus == AppFocus::Explorer {
                                 if let Some(i) = app.explorer_state.selected() {
                                     if let Some(entry) = app.dir_entries.get(i) {
-                                        if let Ok(file_type) = entry.file_type() {
-                                            if file_type.is_dir() {
-                                                app.current_dir = entry.path();
-                                                app.load_directory();
-                                                app.update_library_from_explorer().await;
-                                            } else if file_type.is_file() {
-                                                // Quick Play from Explorer
-                                                let dummy_track = Track {
-                                                    id: ulid::Ulid::new(),
-                                                    file_path: entry.path().to_string_lossy().to_string(),
-                                                    title: Some(entry.file_name().to_string_lossy().to_string()),
-                                                    artist: Some("Local File".to_string()),
-                                                    album_artist: None,
-                                                    album: None,
-                                                    year: None,
-                                                    genre: None,
-                                                    duration_seconds: None,
-                                                };
-                                                app.current_track = Some(dummy_track.clone());
-                                                app.is_playing = true;
-                                                app.playback_start = Some(std::time::Instant::now());
-                                                app.accumulated_play_time = std::time::Duration::ZERO;
-                                                let _ = _tx.send(PlayerCommand::Play(dummy_track));
-                                            }
+                                        if entry.is_dir {
+                                            app.current_dir = entry.path.clone();
+                                            app.load_directory();
+                                            app.update_library_from_explorer().await;
+                                        } else {
+                                            // Quick Play from Explorer
+                                            let dummy_track = Track {
+                                                id: ulid::Ulid::new(),
+                                                file_path: entry.path.to_string_lossy().to_string(),
+                                                title: Some(entry.name.clone()),
+                                                artist: Some("Local File".to_string()),
+                                                album_artist: None,
+                                                album: None,
+                                                year: None,
+                                                genre: None,
+                                                duration_seconds: None,
+                                            };
+                                            app.current_track = Some(dummy_track.clone());
+                                            app.is_playing = true;
+                                            app.playback_start = Some(std::time::Instant::now());
+                                            app.accumulated_play_time = std::time::Duration::ZERO;
+                                            let _ = _tx.send(PlayerCommand::Play(dummy_track));
                                         }
                                     }
                                 }
@@ -425,19 +462,18 @@ fn ui<R: TrackRepository>(f: &mut Frame, app: &mut App<R>) {
     };
     
     let ex_items: Vec<ListItem> = app.dir_entries.iter().map(|entry| {
-        let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
-        let icon = if is_dir { "📁" } else { "🎵" };
-        let name = entry.file_name();
+        let icon = if entry.is_dir { "📁" } else { "🎵" };
+        let name = &entry.name;
         ListItem::new(Line::from(vec![
             Span::styled(format!("{} ", icon), Style::default().fg(Color::Yellow)),
-            Span::raw(name.to_string_lossy().to_string()),
+            Span::raw(name.to_string()),
         ]))
     }).collect();
 
     let explorer_block = List::new(ex_items)
         .block(Block::default()
             .title(explorer_title)
-            .title_bottom(format!(" Ruta: {} | [Enter] Abrir | [Retroceso] Subir ", app.current_dir.display()))
+            .title_bottom(format!(" Ruta: {} | [Enter] Abrir | [Retroceso] Subir ", if app.current_dir.as_os_str().is_empty() { "Discos Locales".to_string() } else { app.current_dir.display().to_string() }))
             .borders(Borders::ALL)
             .border_style(Style::default().fg(ex_border_color)))
         .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
