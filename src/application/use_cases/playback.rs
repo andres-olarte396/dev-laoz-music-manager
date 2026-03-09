@@ -117,10 +117,17 @@ impl PlaybackUseCase {
                 );
 
                 let file = BufReader::new(File::open(file_path)?);
-                let source = match Decoder::new(file) {
-                    Ok(s) => s,
-                    Err(e) => {
+                let decoder_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    Decoder::new(file)
+                }));
+                let source = match decoder_result {
+                    Ok(Ok(s)) => s,
+                    Ok(Err(e)) => {
                         eprintln!("⚠️ Saltando archivo corrupto/no soportado: {}", e);
+                        continue;
+                    }
+                    Err(_) => {
+                        eprintln!("⚠️ Falló el decodificador interno Symphonia para {}.", file_path.to_string_lossy());
                         continue;
                     }
                 };

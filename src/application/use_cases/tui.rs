@@ -246,7 +246,11 @@ impl<R: TrackRepository + Clone + Send + 'static> TuiUseCase<R> {
                             
                             if let Ok(file) = File::open(&track.file_path) {
                                 let reader = BufReader::new(file);
-                                if let Ok(source) = Decoder::new(reader) {
+                                let decoder_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                    Decoder::new(reader)
+                                }));
+                                
+                                if let Ok(Ok(source)) = decoder_result {
                                     sink.append(source);
                                     sink.play();
                                 }
