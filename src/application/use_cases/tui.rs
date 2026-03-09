@@ -528,9 +528,10 @@ fn ui<R: TrackRepository>(f: &mut Frame, app: &mut App<R>) {
             let artist = track.artist.clone().unwrap_or_else(|| "Unknown".to_string());
             let album = track.album.clone().unwrap_or_else(|| "Unknown Album".to_string());
             let line = Line::from(vec![
-                Span::styled(format!("{:20} ", artist), Style::default().fg(Color::Cyan)),
-                Span::styled(format!("{:30} ", album), Style::default().fg(Color::Magenta)),
-                Span::styled(format!("- {}", title), Style::default()),
+                Span::styled(format!("[{}] ", track.id.to_string()), Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("{:40} ", title), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(format!("👤 {:20} ", artist), Style::default().fg(Color::Cyan)),
+                Span::styled(format!("💿 {:30}", album), Style::default().fg(Color::Magenta)),
             ]);
             ListItem::new(line)
         })
