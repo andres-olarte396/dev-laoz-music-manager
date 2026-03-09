@@ -35,7 +35,8 @@ impl PlaybackUseCase {
                     if entry.file_type().is_file() {
                         let path = entry.path();
                         let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
-                        if ext == "mp3" || ext == "flac" || ext == "m4a" || ext == "wma" {
+                        let extensions = ["mp3", "flac", "m4a", "wma", "wav", "ogg", "aac", "opus", "alac", "aiff"];
+                        if extensions.contains(&ext.as_str()) {
                             playlist.push(path.to_path_buf());
                         }
                     }
@@ -46,7 +47,59 @@ impl PlaybackUseCase {
                 anyhow::bail!("No se encontraron archivos de audio válidos en la ruta.");
             }
 
+            playlist.sort();
+
             println!("🎵 Playlist lista con {} pistas.", playlist.len());
+            
+            let page_size = 50;
+            let total_pages = (playlist.len() + page_size - 1) / page_size;
+            let mut current_page = 0;
+            let mut start_index = 0;
+
+            loop {
+                println!("\n--- 📄 Página {} / {} ---", current_page + 1, total_pages);
+                let start = current_page * page_size;
+                let end = ((current_page + 1) * page_size).min(playlist.len());
+                
+                for (i, track) in playlist[start..end].iter().enumerate() {
+                    let global_index = start + i + 1;
+                    let filename = track.file_name().unwrap_or_default().to_string_lossy();
+                    println!("{:4}. {}", global_index, filename);
+                }
+                
+                println!("\n[n] Siguiente pág | [p] Anterior pág | Escribe un NÚMERO (1-{}) para reproducir | [q] Salir", playlist.len());
+                
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input)?;
+                let input = input.trim().to_lowercase();
+                
+                if input == "q" {
+                    println!("⏹️ Saliendo...");
+                    return Ok(());
+                } else if input == "n" {
+                    if current_page + 1 < total_pages {
+                        current_page += 1;
+                    } else {
+                        println!("⚠️ Ya estás en la última página.");
+                    }
+                } else if input == "p" {
+                    if current_page > 0 {
+                        current_page -= 1;
+                    } else {
+                        println!("⚠️ Ya estás en la primera página.");
+                    }
+                } else if let Ok(num) = input.parse::<usize>() {
+                    if num >= 1 && num <= playlist.len() {
+                        start_index = num - 1;
+                        break;
+                    } else {
+                        println!("⚠️ Número fuera de rango. Selecciona entre 1 y {}.", playlist.len());
+                    }
+                } else {
+                    println!("⚠️ Entrada no reconocida. Ingresa un número, 'n', 'p' o 'q'.");
+                }
+            }
+
             println!("Teclas de control: [p] Pausar/Reanudar | [n] Siguiente | [q] Salir");
 
             // 2. Inicializar el motor de audio alsa
@@ -56,8 +109,8 @@ impl PlaybackUseCase {
             let sink = Sink::try_new(&stream_handle)?;
 
             // 3. Iterar por cada canción en la Playlist
-            for (index, file_path) in playlist.iter().enumerate() {
-                println!("▶️ Reproduciendo [{}/{}]: {}", 
+            for (index, file_path) in playlist.iter().enumerate().skip(start_index) {
+                println!("\n▶️ Reproduciendo [{}/{}]: {}", 
                     index + 1, 
                     playlist.len(), 
                     file_path.file_name().unwrap_or_default().to_string_lossy()

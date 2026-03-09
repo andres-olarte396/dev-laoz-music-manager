@@ -2,7 +2,7 @@ use std::fs::{self, File, DirEntry};
 use std::io::BufReader;
 use rodio::{Decoder, OutputStream, Sink};
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -89,7 +89,19 @@ impl<R: TrackRepository> App<R> {
         if let Ok(entries) = fs::read_dir(&self.current_dir) {
             let mut valid_entries: Vec<DirEntry> = entries
                 .filter_map(|e| e.ok())
-                .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
+                .filter(|e| {
+                    if let Ok(ft) = e.file_type() {
+                        if ft.is_dir() {
+                            return true;
+                        }
+                        if ft.is_file() {
+                            let ext = e.path().extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+                            let extensions = ["mp3", "flac", "m4a", "wma", "wav", "ogg", "aac", "opus", "alac", "aiff"];
+                            return extensions.contains(&ext.as_str());
+                        }
+                    }
+                    false
+                })
                 .collect();
             // Sort alphabetical
             valid_entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
@@ -136,13 +148,13 @@ impl<R: TrackRepository> App<R> {
 
     async fn perform_search(&mut self) {
         if self.input.is_empty() {
-            // Si está vacío, cargar las primeras 50 canciones genéricas (usando limit)
-            if let Ok(tracks) = self.repository.list_paginated(None, 50).await {
+            // Si está vacío, cargar las primeras 10000 canciones genéricas (usando limit)
+            if let Ok(tracks) = self.repository.list_paginated(None, 10000).await {
                 self.results = tracks;
             }
         } else {
             // Realizar búsqueda en la base de datos
-            if let Ok(tracks) = self.repository.search(&self.input, 50).await {
+            if let Ok(tracks) = self.repository.search(&self.input, 10000).await {
                 self.results = tracks;
             }
         }
@@ -160,7 +172,7 @@ impl<R: TrackRepository> App<R> {
             self.current_dir.to_string_lossy().to_string()
         };
 
-        if let Ok(tracks) = self.repository.search_by_path(&path_to_search, 50).await {
+        if let Ok(tracks) = self.repository.search_by_path(&path_to_search, 10000).await {
             self.results = tracks;
         }
         self.list_state.select(Some(0));
@@ -256,7 +268,8 @@ async fn run_app<B: Backend, R: TrackRepository>(
 
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                match app.input_mode {
+                if key.kind == KeyEventKind::Press {
+                    match app.input_mode {
                     InputMode::Normal => match key.code {
                         KeyCode::Char('q') | KeyCode::Char('Q') => {
                             return Ok(());
@@ -373,6 +386,7 @@ async fn run_app<B: Backend, R: TrackRepository>(
                         }
                         _ => {}
                     },
+                }
                 }
             }
         }

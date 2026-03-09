@@ -28,8 +28,9 @@ impl<R: TrackRepository, E: MetadataExtractor> ScanLibraryUseCase<R, E> {
                 let current_path = entry.path();
                 let extension = current_path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
                 
-                // Filtro básico de formatos soportados por MVP
-                if extension == "mp3" || extension == "flac" || extension == "m4a" || extension == "wma" {
+                let extensions = ["mp3", "flac", "m4a", "wma", "wav", "ogg", "aac", "opus", "alac", "aiff"];
+                // Filtro para todas las extensiones soportadas
+                if extensions.contains(&extension.as_str()) {
                     let file_path = current_path.to_string_lossy().to_string();
                     
                     // Extraer Metadata usando el Puerto
