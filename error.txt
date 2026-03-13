@@ -1,0 +1,70 @@
+    Checking music-manager v0.1.0 (E:\Repositorios\MyRepos\tools\dev-laoz-music-manager)
+warning: unused import: `crate::application::use_cases::playback::PlaybackUseCase`
+  --> src\application\use_cases\tui.rs:23:5
+   |
+23 | use crate::application::use_cases::playback::PlaybackUseCase;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `TagItem` and `TagType`
+  --> src\application\use_cases\identify_track.rs:17:36
+   |
+17 | use lofty::tag::{Accessor, TagExt, TagType, ItemKey, TagItem};
+   |                                    ^^^^^^^           ^^^^^^^
+
+warning: unused import: `crate::domain::entities::track::Track`
+  --> src\application\use_cases\identify_track.rs:23:5
+   |
+23 | use crate::domain::entities::track::Track;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `clone` found for type parameter `R` in the current scope
+  --> src\application\use_cases\identify_track.rs:45:40
+   |
+31 | impl<R: TrackRepository> IdentifyTrackUseCase<R> {
+   |      - method `clone` not found for this type parameter
+...
+45 |             let repo = self.repository.clone();
+   |                                        ^^^^^ method not found in `R`
+   |
+   = help: items from traits can only be used if the type parameter is bounded by the trait
+help: the following trait defines an item `clone`, perhaps you need to restrict type parameter `R` with it:
+   |
+31 | impl<R: TrackRepository + Clone> IdentifyTrackUseCase<R> {
+   |                         +++++++
+
+warning: unused import: `Accessor`
+  --> src\application\use_cases\identify_track.rs:17:18
+   |
+17 | use lofty::tag::{Accessor, TagExt, TagType, ItemKey, TagItem};
+   |                  ^^^^^^^^
+
+warning: unused import: `AudioFile`
+  --> src\application\use_cases\identify_track.rs:16:19
+   |
+16 | use lofty::file::{AudioFile, TaggedFileExt};
+   |                   ^^^^^^^^^
+
+warning: value assigned to `start_index` is never read
+  --> src\application\use_cases\playback.rs:57:35
+   |
+57 |             let mut start_index = 0;
+   |                                   ^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> src\application\use_cases\identify_track.rs:120:13
+    |
+120 |         let mut probed = symphonia::default::get_probe()
+    |             ----^^^^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+For more information about this error, try `rustc --explain E0599`.
+warning: `music-manager` (bin "music-manager") generated 7 warnings
+error: could not compile `music-manager` (bin "music-manager") due to 1 previous error; 7 warnings emitted

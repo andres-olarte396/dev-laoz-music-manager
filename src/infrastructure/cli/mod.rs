@@ -93,6 +93,36 @@ pub enum Commands {
         /// Directorio inicial para explorar (opcional)
         path: Option<String>,
     },
+
+    /// Identifica los metadatos verdaderos usando la huella acústica (AcoustID)
+    Identify {
+        /// Ruta al archivo de audio para identificar
+        path: String,
+        
+        /// Guarda los metadatos recuperados en el archivo original
+        #[arg(long)]
+        save: bool,
+    },
+
+    /// Renombra archivos de audio al formato estándar:
+    /// {Artista} - {NúmeroPista} {Título} ({Versión}).{ext}
+    Rename {
+        /// Ruta al archivo o directorio a renombrar
+        path: String,
+
+        /// Solo muestra los cambios sin aplicarlos (simulación)
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Fuerza una versión específica para todos los archivos
+        /// Valores posibles: acustica, envivo, remix, cover, instrumental, radio, extended, demo, remaster
+        #[arg(long)]
+        version: Option<String>,
+
+        /// No detecta automáticamente la versión (ignora acoustic/live/remix en el nombre)
+        #[arg(long)]
+        no_version: bool,
+    },
 }
 
 pub fn parse() -> Cli {

@@ -1,0 +1,29 @@
+# config.toml
+
+[archive_org]
+advanced_search_url = "https://archive.org/advancedsearch.php"
+download_base_url = "https://archive.org/download"
+max_results = 50
+
+[library]
+# Si se deja vacío, podemos usar dirs::audio_dir() por defecto.
+# download_path = "C:\\Users\\ANDRES\\Music\\Descargas"
+
+[network]
+timeout_seconds = 30
+max_concurrent_downloads = 3
+
+# ── Identificación de canciones (AcoustID) ────────────────────────────────────
+[identify]
+# API Key de AcoustID. Regístrala en https://acoustid.org/new-application
+acoustid_key = "6PeGsmudQB"
+# Ruta al binario fpcalc (dejar vacío para buscar en PATH y %LOCALAPPDATA%)
+# fpcalc_path = "C:\\herramientas\\fpcalc.exe"
+
+# ── Renombrado de archivos ───────────────────────────────────────────────────
+[rename]
+# Detecta automáticamente la versión (Acústica, En Vivo, Remix…) desde el título
+auto_detect_version = true
+# Fuerza una versión específica para TODOS los archivos al renombrar (vacío = deshabilitado)
+# Valores posibles: acustica, envivo, remix, cover, instrumental, radio, extended, demo, remaster
+# default_version = ""

@@ -1,0 +1,29 @@
+    Checking music-manager v0.1.0 (E:\Repositorios\MyRepos\tools\dev-laoz-music-manager)
+error[E0603]: module `compression` is private
+  --> src\bin\fingerprint_test.rs:80:41
+   |
+80 |     let compressor = rusty_chromaprint::compression::FingerprintCompressor::from(&Configuration::preset_test1());
+   |                                         ^^^^^^^^^^^ private module
+   |
+note: the module `compression` is defined here
+  --> C:\Users\ANDRES\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\rusty-chromaprint-0.3.0\src\lib.rs:13:1
+   |
+13 | mod compression;
+   | ^^^^^^^^^^^^^^^
+help: consider importing this struct instead
+   |
+80 -     let compressor = rusty_chromaprint::compression::FingerprintCompressor::from(&Configuration::preset_test1());
+80 +     let compressor = rusty_chromaprint::FingerprintCompressor::from(&Configuration::preset_test1());
+   |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `data_encoding`
+  --> src\bin\fingerprint_test.rs:83:5
+   |
+83 |     data_encoding::BASE64URL_NOPAD.encode_append(&compressed, &mut b64);
+   |     ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `data_encoding`
+   |
+   = help: if you wanted to use a crate named `data_encoding`, use `cargo add data_encoding` to add it to your `Cargo.toml`
+
+Some errors have detailed explanations: E0433, E0603.
+For more information about an error, try `rustc --explain E0433`.
+error: could not compile `music-manager` (bin "fingerprint_test") due to 2 previous errors
